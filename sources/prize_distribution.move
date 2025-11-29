@@ -9,7 +9,7 @@ address  WalletAddress {
     use aptos_framework::account;
 
     /// Prize pool balances per tier (hours)
-    struct PrizePool has key {
+    public struct PrizePool has key {
       pool_10h: u64,
       pool_24h: u64,
       pool_weekly: u64,
@@ -17,21 +17,47 @@ address  WalletAddress {
       owner: address,  // contract owner for access control
     }
 
-    struct PrizePoolDepositedEvent has drop, store {
+    public struct PrizePoolDepositedEvent has drop, store {
       amount: u64,
       tier_hours: u64,
     }
 
-    struct PrizePayoutEvent has drop, store {
+    public struct PrizePayoutEvent has drop, store {
       recipient: address,
       amount: u64,
       tier_hours: u64,
     }
 
-    struct PrizeDistributionEvents has key {
+    public struct PrizeDistributionEvents has key {
       prize_pool_deposited_events: event::EventHandle<PrizePoolDepositedEvent>,
       prize_payout_events: event::EventHandle<PrizePayoutEvent>,
     }
+
+     // Add these test helper functions to your PrizeDistribution module
+
+#[test_only]
+public fun get_pool_10h_for_testing(account_addr: address): u64 acquires PrizePool {
+  let pool = borrow_global<PrizePool>(account_addr);
+  pool.pool_10h
+}
+
+#[test_only]
+public fun get_pool_24h_for_testing(account_addr: address): u64 acquires PrizePool {
+  let pool = borrow_global<PrizePool>(account_addr);
+  pool.pool_24h
+}
+
+#[test_only]
+public fun get_pool_weekly_for_testing(account_addr: address): u64 acquires PrizePool {
+  let pool = borrow_global<PrizePool>(account_addr);
+  pool.pool_weekly
+}
+
+#[test_only]
+public fun get_pool_monthly_for_testing(account_addr: address): u64 acquires PrizePool {
+  let pool = borrow_global<PrizePool>(account_addr);
+  pool.pool_monthly
+}
 
     /// Initialize prize pools with owner set to creator
     public entry fun init(account: &signer) {
