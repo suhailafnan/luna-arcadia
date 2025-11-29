@@ -1,0 +1,11 @@
+# Aptos build and config folder
+.aptos/
+
+# Build artifacts
+build/
+
+# Node.js dependencies
+node_modules/
+
+# Environment variables file
+.env
