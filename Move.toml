@@ -5,6 +5,9 @@ authors = []
 
 [addresses]
 
+WalletAddress = "0xf0c29b2a4d46010effaf11d67762f64881f14be4c1bc1b2ce88f6c7d67321283"
+
+
 [dev-addresses]
 
 [dependencies.AptosFramework]
