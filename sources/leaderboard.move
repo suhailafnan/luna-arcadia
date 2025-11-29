@@ -1,9 +1,11 @@
 address  WalletAddress {
- 
+
   module Leaderboard {
     use std::vector;
     use aptos_framework::timestamp;
     use std::signer;
+    use aptos_framework::event;
+    use aptos_framework::account;
 
     struct LeaderboardData has key {
       points_10h: vector<(address, u64)>,
@@ -18,6 +20,22 @@ address  WalletAddress {
       prize_pool_24h: u64,
       prize_pool_weekly: u64,
       prize_pool_monthly: u64,
+    }
+
+    struct PointsUpdatedEvent has drop, store {
+      player: address,
+      points_added: u64,
+      tier_hours: u64,
+    }
+
+    struct PrizePoolDepositedEvent has drop, store {
+      amount: u64,
+      tier_hours: u64,
+    }
+
+    struct LeaderboardEvents has key {
+      points_updated_events: event::EventHandle<PointsUpdatedEvent>,
+      prize_pool_deposited_events: event::EventHandle<PrizePoolDepositedEvent>,
     }
 
     public entry fun init(account: &signer) {
@@ -38,26 +56,33 @@ address  WalletAddress {
         prize_pool_weekly: 0,
         prize_pool_monthly: 0,
       });
+
+      // Initialize event handles
+      move_to(account, LeaderboardEvents {
+        points_updated_events: account::new_event_handle<PointsUpdatedEvent>(account),
+        prize_pool_deposited_events: account::new_event_handle<PrizePoolDepositedEvent>(account),
+      });
     }
 
-   fun reset_leaderboard_if_needed(
-  points_vec: &mut vector<(address, u64)>,
-  last_reset: &mut u64,
-  reset_interval_secs: u64
-) {
-  let now = timestamp::now_seconds();
-  if (now >= *last_reset + reset_interval_secs) {
-    // Clear the vector by removing elements from the end
-    while (!vector::is_empty(points_vec)) {
-      vector::pop_back(points_vec);
-    };
-    *last_reset = now;
-  }
-}
+    fun reset_leaderboard_if_needed(
+      points_vec: &mut vector<(address, u64)>,
+      last_reset: &mut u64,
+      reset_interval_secs: u64
+    ) {
+      let now = timestamp::now_seconds();
+      if (now >= *last_reset + reset_interval_secs) {
+        // Clear the vector by removing elements from the end
+        while (!vector::is_empty(points_vec)) {
+          vector::pop_back(points_vec);
+        };
+        *last_reset = now;
+      }
+    }
 
-    public entry fun update_player_points(account: &signer, player: address, points: u64) acquires LeaderboardData {
+    public entry fun update_player_points(account: &signer, player: address, points: u64) acquires LeaderboardData, LeaderboardEvents {
       let addr = signer::address_of(account);
       let lb = borrow_global_mut<LeaderboardData>(addr);
+      let events = borrow_global_mut<LeaderboardEvents>(addr);
 
       // Reset leaderboards if time windows have elapsed
       reset_leaderboard_if_needed(&mut lb.points_10h, &mut lb.last_reset_10h, 10 * 3600);
@@ -70,6 +95,28 @@ address  WalletAddress {
       update_points(&mut lb.points_24h, player, points);
       update_points(&mut lb.points_weekly, player, points);
       update_points(&mut lb.points_monthly, player, points);
+
+      // Emit events for each tier
+      event::emit_event(&mut events.points_updated_events, PointsUpdatedEvent {
+        player,
+        points_added: points,
+        tier_hours: 10,
+      });
+      event::emit_event(&mut events.points_updated_events, PointsUpdatedEvent {
+        player,
+        points_added: points,
+        tier_hours: 24,
+      });
+      event::emit_event(&mut events.points_updated_events, PointsUpdatedEvent {
+        player,
+        points_added: points,
+        tier_hours: 168,
+      });
+      event::emit_event(&mut events.points_updated_events, PointsUpdatedEvent {
+        player,
+        points_added: points,
+        tier_hours: 720,
+      });
     }
 
     fun update_points(points_vector: &mut vector<(address, u64)>, player: address, new_points: u64) {
@@ -89,9 +136,10 @@ address  WalletAddress {
       vector::push_back(points_vector, (player, new_points));
     }
 
-    public entry fun add_to_prize_pool(account: &signer, amount: u64, tier_hours: u64) acquires LeaderboardData {
+    public entry fun add_to_prize_pool(account: &signer, amount: u64, tier_hours: u64) acquires LeaderboardData, LeaderboardEvents {
       let addr = signer::address_of(account);
       let lb = borrow_global_mut<LeaderboardData>(addr);
+      let events = borrow_global_mut<LeaderboardEvents>(addr);
 
       if (tier_hours == 10) {
         lb.prize_pool_10h = lb.prize_pool_10h + amount;
@@ -101,9 +149,73 @@ address  WalletAddress {
         lb.prize_pool_weekly = lb.prize_pool_weekly + amount;
       } else if (tier_hours == 720) {
         lb.prize_pool_monthly = lb.prize_pool_monthly + amount;
+      };
+
+      // Emit prize pool deposited event
+      event::emit_event(&mut events.prize_pool_deposited_events, PrizePoolDepositedEvent {
+        amount,
+        tier_hours,
+      });
+    }
+
+    // --- Sorting function: simple bubble sort descending by points ---
+    fun sort_points_desc(points: &mut vector<(address, u64)>) {
+      let len = vector::length(points);
+      let i = 0;
+      while (i < len) {
+        let j = 0;
+        while (j < len - 1 - i) {
+          let p1 = *vector::borrow(points, j);
+          let p2 = *vector::borrow(points, j + 1);
+          let (_, pts1) = p1;
+          let (_, pts2) = p2;
+          if (pts1 < pts2) {
+            vector::swap(points, j, j + 1);
+          };
+          j = j + 1;
+        };
+        i = i + 1;
       }
     }
 
-    // TODO: Implement payout logic here or call PrizeDistribution module payout functions
+    // --- Query function: get top N players from specified tier ---
+    public fun get_top_players(points_vec: &mut vector<(address, u64)>, count: u64): vector<(address, u64)> {
+      sort_points_desc(points_vec);
+      let len = vector::length(points_vec);
+      let limit = if (len < count) { len } else { count };
+      let result = vector::empty();
+      let i = 0;
+      while (i < limit) {
+        let entry = *vector::borrow(points_vec, i);
+        vector::push_back(&mut result, entry);
+        i = i + 1;
+      };
+      result
+    }
+
+    // --- Public query functions for each tier ---
+    #[view]
+    public fun get_top_10h(account_addr: address, count: u64): vector<(address, u64)> acquires LeaderboardData {
+      let lb = borrow_global_mut<LeaderboardData>(account_addr);
+      get_top_players(&mut lb.points_10h, count)
+    }
+
+    #[view]
+    public fun get_top_24h(account_addr: address, count: u64): vector<(address, u64)> acquires LeaderboardData {
+      let lb = borrow_global_mut<LeaderboardData>(account_addr);
+      get_top_players(&mut lb.points_24h, count)
+    }
+
+    #[view]
+    public fun get_top_weekly(account_addr: address, count: u64): vector<(address, u64)> acquires LeaderboardData {
+      let lb = borrow_global_mut<LeaderboardData>(account_addr);
+      get_top_players(&mut lb.points_weekly, count)
+    }
+
+    #[view]
+    public fun get_top_monthly(account_addr: address, count: u64): vector<(address, u64)> acquires LeaderboardData {
+      let lb = borrow_global_mut<LeaderboardData>(account_addr);
+      get_top_players(&mut lb.points_monthly, count)
+    }
   }
 }
