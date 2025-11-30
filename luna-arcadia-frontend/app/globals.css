@@ -1,26 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    font-family: 'Press Start 2P', monospace;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* Pixel Font Classes */
+  .font-pixel {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .font-mono-game {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  /* Shadow Effects */
+  .shadow-retro-sm {
+    box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.8);
+  }
+
+  .shadow-retro-lg {
+    box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 0.8);
+  }
+
+  .shadow-neon-sm {
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  }
+
+  .shadow-neon-lg {
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+  }
+
+  .shadow-inner-retro {
+    box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.6);
+  }
+
+  .text-shadow-neon {
+    text-shadow: 0 0 10px rgba(255, 255, 0, 0.8), 0 0 20px rgba(255, 255, 0, 0.5);
+  }
+
+  /* Animation */
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-pulse-border {
+    animation: pulseBorder 2s ease-in-out infinite;
+  }
+
+  @keyframes pulseBorder {
+    0%, 100% {
+      border-color: rgba(34, 211, 238, 1);
+    }
+    50% {
+      border-color: rgba(34, 211, 238, 0.5);
+    }
+  }
 }
