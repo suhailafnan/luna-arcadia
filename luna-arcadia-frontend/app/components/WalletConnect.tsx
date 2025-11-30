@@ -1,6 +1,14 @@
 "use client";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+
+// TypeScript interface
+interface AccountInfo {
+  address: {
+    toString: () => string;
+  };
+}
 
 // Mock data for demonstration
 const MOCK_USER_STATS = {
@@ -21,9 +29,10 @@ const MOCK_LEADERBOARD_DATA = [
 ];
 
 // Connected Dashboard Component
-const ConnectedDashboard = ({ account, disconnect }: { account: any; disconnect: () => void }) => {
+const ConnectedDashboard = ({ account, disconnect }: { account: AccountInfo; disconnect: () => void }) => {
   const [activeTab, setActiveTab] = useState('WEEKLY');
   const [activeScreen, setActiveScreen] = useState('DASHBOARD');
+  const router = useRouter();
 
   const address = account.address.toString();
   const userData = MOCK_USER_STATS;
@@ -53,7 +62,7 @@ const ConnectedDashboard = ({ account, disconnect }: { account: any; disconnect:
   if (activeScreen === 'PROFILE') {
     screenContent = (
       <div className="p-4 text-white bg-gray-900 border-2 border-white/50 shadow-inner-retro min-h-[300px]">
-        <h3 className="font-pixel text-xl text-lime-400 mb-4">PLAYER PROFILE </h3>
+        <h3 className="font-pixel text-xl text-lime-400 mb-4">PLAYER PROFILE</h3>
         <p className="font-mono-game text-lg mb-2"><span className="text-cyan-400">USER ID:</span> {userData.username}</p>
         <p className="font-mono-game text-lg mb-2"><span className="text-cyan-400">APTOS ADDRESS:</span> {address.slice(0, 10)}...</p>
         <p className="font-mono-game text-lg mb-4"><span className="text-cyan-400">HIGHEST SCORE:</span> 98,245</p>
@@ -69,7 +78,7 @@ const ConnectedDashboard = ({ account, disconnect }: { account: any; disconnect:
   } else if (activeScreen === 'REFERRAL') {
     screenContent = (
       <div className="p-4 text-white bg-gray-900 border-2 border-white/50 shadow-inner-retro min-h-[300px] text-center">
-        <h3 className="font-pixel text-xl text-yellow-400 mb-4">REFERRAL CODE </h3>
+        <h3 className="font-pixel text-xl text-yellow-400 mb-4">REFERRAL CODE</h3>
         <p className="font-mono-game text-lg mb-4">SHARE THIS CODE WITH NEW PLAYERS:</p>
         <div className="bg-gray-800 border-2 border-yellow-400 p-4 shadow-neon-sm inline-block">
           <p className="font-pixel text-3xl text-yellow-400">{userData.referralCode}</p>
@@ -91,6 +100,7 @@ const ConnectedDashboard = ({ account, disconnect }: { account: any; disconnect:
       <>
         <div className="text-center mb-6">
           <button 
+            onClick={() => router.push('/games')}
             className="inline-block px-10 py-5 bg-green-500 hover:bg-green-600 text-gray-900 text-2xl font-pixel shadow-retro-lg border-4 border-green-300 active:shadow-inner-retro transition duration-150 ease-in-out transform hover:scale-[1.02]"
             style={{ borderRadius: '4px' }}
           >
@@ -204,8 +214,28 @@ const ConnectedDashboard = ({ account, disconnect }: { account: any; disconnect:
 // Main WalletConnect Component
 export function WalletConnect() {
   const { connect, disconnect, account, connected, wallets } = useWallet();
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const petraWallet = wallets?.find(wallet => wallet.name === "Petra");
+
+  const handleConnect = async () => {
+    if (!petraWallet) {
+      alert("Petra wallet not found! Please install it from petra.app");
+      return;
+    }
+
+    try {
+      setIsConnecting(true);
+      console.log("Attempting to connect to Petra...");
+      await connect(petraWallet.name);
+      console.log("Connected successfully!");
+    } catch (error) {
+      console.error("Connection error:", error);
+      alert("Failed to connect. Please make sure Petra wallet is unlocked.");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   if (connected && account) {
     return <ConnectedDashboard account={account} disconnect={disconnect} />;
@@ -222,14 +252,14 @@ export function WalletConnect() {
       </div>
 
       <button
-        onClick={() => petraWallet && connect(petraWallet.name)}
-        disabled={!petraWallet}
+        onClick={handleConnect}
+        disabled={!petraWallet || isConnecting}
         className={`w-full bg-yellow-500 text-gray-900 py-4 font-pixel text-lg border-4 border-yellow-300 shadow-retro-sm active:shadow-inner-retro transition-all ${
-          !petraWallet ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-400 active:bg-yellow-600'
+          !petraWallet || isConnecting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-400 active:bg-yellow-600'
         }`}
         style={{ borderRadius: '4px' }}
       >
-        {petraWallet ? 'PRESS START (PETRA)' : 'WALLET NOT DETECTED'}
+        {isConnecting ? 'CONNECTING...' : petraWallet ? 'PRESS START (PETRA)' : 'WALLET NOT DETECTED'}
       </button>
 
       <div className="mt-8 text-center bg-gray-800 border-2 border-cyan-500 px-4 py-4 shadow-inner-retro">
