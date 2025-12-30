@@ -11,7 +11,7 @@ Luna Arcadia is a Next.js-based web app where players can play short skill-based
 - **Aptos Explorer (Publish Txn):** https://explorer.aptoslabs.com/txn/0x79d987ecd008948c2d388f17aa438bff768137b4ee04f61ea91c955cacb44b0c?network=testnet
 - **Deployed Package Address (Testnet):** `0xf0c29b2a4d46010effaf11d67762f64881f14be4c1bc1b2ce88f6c7d67321283`
 
----
+
 
 ## What we built
 
